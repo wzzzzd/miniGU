@@ -17,8 +17,8 @@ use minigu_storage::common::IsolationLevel;
 use minigu_storage::model::edge::Edge;
 use minigu_storage::model::properties::PropertyRecord;
 use minigu_storage::model::vertex::Vertex;
-use minigu_storage::tp_storage::MemoryGraph;
-use minigu_storage::tp_storage::checkpoint::CheckpointManagerConfig;
+use minigu_storage::tp::MemoryGraph;
+use minigu_storage::tp::checkpoint::CheckpointManagerConfig;
 use minigu_storage::wal::graph_wal::WalManagerConfig;
 
 fn build_graph_type() -> Arc<MemoryGraphTypeCatalog> {
