@@ -65,20 +65,26 @@ impl ShellContext {
         let options = TableOptions::new()
             .with_style(self.mode.into())
             .with_type_info(self.column_type);
-        let mut builder = if self.header {
-            TableBuilder::new(result.schema().cloned(), options)
-        } else {
-            TableBuilder::new(None, options)
-        };
-        let mut num_rows = 0;
-        for chunk in result {
-            let chunk = chunk;
-            num_rows += chunk.cardinality();
-            builder = builder.append_chunk(&chunk);
+        let metrics = result.metrics();
+        let compiling_time = metrics.compiling_time().as_millis_f64();
+        let execution_time = metrics.execution_time().as_millis_f64();
+        if let Some(schema) = result.schema() {
+            let mut builder = if self.header {
+                TableBuilder::new(Some(schema.clone()), options)
+            } else {
+                TableBuilder::new(None, options)
+            };
+            let mut num_rows = 0;
+            for chunk in result {
+                let chunk = chunk;
+                num_rows += chunk.cardinality();
+                builder = builder.append_chunk(&chunk);
+            }
+            let table = builder.build();
+            println!("{table}");
+            println!("({} rows)", num_rows);
         }
-        let table = builder.build();
-        println!("{table}");
-        println!("({} rows)", num_rows);
+        println!("(compiling: {compiling_time:.3}ms, execution: {execution_time:.3}ms)");
         Ok(())
     }
 

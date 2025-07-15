@@ -12,7 +12,7 @@ use minigu_common::data_type::{DataField, DataSchema, DataSchemaRef};
 use minigu_common::error::not_implemented;
 use minigu_common::ordering::{NullOrdering, SortOrdering};
 use minigu_ir::bound::{
-    BoundCompositeQueryStatement, BoundExpr, BoundLinearQueryStatement,
+    BoundCompositeQueryStatement, BoundExpr, BoundLinearQueryStatement, BoundMatchStatement,
     BoundOrderByAndPageStatement, BoundQueryConjunction, BoundResultStatement,
     BoundReturnStatement, BoundSetOp, BoundSetOpKind, BoundSetQuantifier,
     BoundSimpleQueryStatement, BoundSortSpec,
@@ -57,6 +57,7 @@ impl Binder<'_> {
     ) -> BindResult<BoundLinearQueryStatement> {
         match statement {
             FocusedLinearQueryStatement::Parts { parts, result } => {
+                let old_graph = self.current_graph.clone();
                 let statements = parts
                     .iter()
                     .map(|p| self.bind_focused_linear_query_statement_part(p.value()))
@@ -68,19 +69,24 @@ impl Binder<'_> {
                     .transpose()?
                     .unwrap_or_default();
                 let result = self.bind_result_statement(result.value())?;
+                self.current_graph = old_graph;
                 Ok(BoundLinearQueryStatement::Query { statements, result })
             }
             FocusedLinearQueryStatement::Result { use_graph, result } => {
-                let _graph = self.bind_graph_expr(use_graph.value())?;
+                let graph = self.bind_graph_expr(use_graph.value())?;
+                let old_graph = self.current_graph.replace(graph);
                 let result = self.bind_result_statement(result.value())?;
+                self.current_graph = old_graph;
                 Ok(BoundLinearQueryStatement::Query {
                     statements: vec![],
                     result,
                 })
             }
             FocusedLinearQueryStatement::Nested { use_graph, query } => {
-                let _graph = self.bind_graph_expr(use_graph.value())?;
+                let graph = self.bind_graph_expr(use_graph.value())?;
+                let old_graph = self.current_graph.replace(graph);
                 let query = self.bind_procedure(query.value())?;
+                self.current_graph = old_graph;
                 Ok(BoundLinearQueryStatement::Nested(Box::new(query)))
             }
             FocusedLinearQueryStatement::Select { .. } => not_implemented("select statement", None),
@@ -124,7 +130,9 @@ impl Binder<'_> {
         statement: &SimpleQueryStatement,
     ) -> BindResult<BoundSimpleQueryStatement> {
         match statement {
-            SimpleQueryStatement::Match(statement) => todo!(),
+            SimpleQueryStatement::Match(statement) => self
+                .bind_match_statement(statement)
+                .map(BoundSimpleQueryStatement::Match),
             SimpleQueryStatement::Call(statement) => {
                 let statement = self.bind_call_procedure_statement(statement)?;
                 let schema = statement
@@ -143,9 +151,14 @@ impl Binder<'_> {
         }
     }
 
-    pub fn bind_match_statement(&mut self, statement: &MatchStatement) -> BindResult<()> {
+    pub fn bind_match_statement(
+        &mut self,
+        statement: &MatchStatement,
+    ) -> BindResult<BoundMatchStatement> {
         match statement {
-            MatchStatement::Simple(table) => todo!(),
+            MatchStatement::Simple(table) => self
+                .bind_graph_pattern_binding_table(table.value())
+                .map(BoundMatchStatement::Simple),
             MatchStatement::Optional(_) => not_implemented("optional match statement", None),
         }
     }

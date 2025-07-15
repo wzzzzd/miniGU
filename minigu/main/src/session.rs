@@ -2,7 +2,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use arrow::array::create_array;
-use gql_parser::ast::{Procedure, Program, ProgramActivity, SessionActivity, TransactionActivity};
+use gql_parser::ast::{
+    Procedure, Program, ProgramActivity, SchemaRef as AstSchemaRef, SessionActivity, SessionReset,
+    SessionResetArgs, SessionSet, TransactionActivity,
+};
 use gql_parser::parse_gql;
 use itertools::Itertools;
 use minigu_binder::binder::Binder;
@@ -69,8 +72,47 @@ impl Session {
         Ok(result)
     }
 
-    fn handle_session_activity(&self, activity: &SessionActivity) -> Result<QueryResult> {
-        not_implemented("session activity", None)
+    fn handle_session_activity(&mut self, activity: &SessionActivity) -> Result<QueryResult> {
+        let mut metrics = QueryMetrics::default();
+        let start = Instant::now();
+        for set in &activity.set {
+            match set.value() {
+                SessionSet::Schema(schema) => return not_implemented("session set schema", None),
+                SessionSet::Graph(graph) => {
+                    let binder = self.build_binder();
+                    let graph = binder.bind_graph_expr(graph.value())?;
+                    self.context.current_graph = Some(graph);
+                }
+                SessionSet::TimeZone(_) => return not_implemented("session set timezone", None),
+                SessionSet::Parameter(_) => return not_implemented("session set parameter", None),
+            }
+        }
+        for reset in &activity.reset {
+            if let Some(reset) = &reset.value().0 {
+                match reset.value() {
+                    SessionResetArgs::AllCharacteristics => self.reset_session(),
+                    SessionResetArgs::AllParameters => {
+                        return not_implemented("session reset all parameters", None);
+                    }
+                    SessionResetArgs::Schema => {
+                        self.context.current_schema = self.context.home_schema.clone();
+                    }
+                    SessionResetArgs::Graph => {
+                        self.context.current_graph = self.context.home_graph.clone();
+                    }
+                    SessionResetArgs::TimeZone => {
+                        return not_implemented("session reset timezone", None);
+                    }
+                    SessionResetArgs::Parameter(spanned) => {
+                        return not_implemented("session reset parameter", None);
+                    }
+                }
+            } else {
+                self.reset_session();
+            }
+        }
+        metrics.execution_time = start.elapsed();
+        Ok(QueryResult::new(None, metrics, vec![]))
     }
 
     fn handle_transaction_activity(&self, activity: &TransactionActivity) -> Result<QueryResult> {
@@ -93,13 +135,7 @@ impl Session {
         let mut metrics = QueryMetrics::default();
 
         let start = Instant::now();
-        let binder = Binder::new(
-            self.context.database().catalog(),
-            self.context.current_schema.clone().map(|s| s as _),
-            self.context.home_schema.clone().map(|s| s as _),
-            self.context.current_graph.clone(),
-            self.context.home_graph.clone(),
-        );
+        let binder = self.build_binder();
         let bound = binder.bind(procedure)?;
         metrics.binding_time = start.elapsed();
 
@@ -117,5 +153,20 @@ impl Session {
         metrics.execution_time = start.elapsed();
 
         Ok(QueryResult::new(data_schema, metrics, chunks))
+    }
+
+    fn build_binder(&self) -> Binder {
+        Binder::new(
+            self.context.database().catalog(),
+            self.context.current_schema.clone().map(|s| s as _),
+            self.context.home_schema.clone().map(|s| s as _),
+            self.context.current_graph.clone(),
+            self.context.home_graph.clone(),
+        )
+    }
+
+    fn reset_session(&mut self) {
+        self.context.current_schema = self.context.home_schema.clone();
+        self.context.current_graph = self.context.home_graph.clone();
     }
 }

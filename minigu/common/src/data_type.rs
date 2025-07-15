@@ -67,6 +67,7 @@ pub enum LogicalType {
     String,
     Vertex(Vec<DataField>),
     Edge(Vec<DataField>),
+    Path,
     Record(Vec<DataField>),
     Null,
 }
@@ -107,6 +108,7 @@ impl LogicalType {
                     .collect();
                 DataType::Struct(fields)
             }
+            LogicalType::Path => todo!(),
             LogicalType::Record(fields) => {
                 let fields = fields
                     .iter()
@@ -142,6 +144,7 @@ impl fmt::Display for LogicalType {
             LogicalType::Edge(properties) => {
                 write!(f, "edge {{ {} }}", properties.iter().join(","))
             }
+            LogicalType::Path => todo!(),
             LogicalType::Record(fields) => {
                 write!(f, "record {{ {} }}", fields.iter().join(","))
             }
@@ -159,6 +162,10 @@ impl DataSchema {
     #[inline]
     pub fn new(fields: Vec<DataField>) -> Self {
         Self(fields)
+    }
+
+    pub fn push(&mut self, field: DataField) {
+        self.0.push(field);
     }
 
     pub fn append(&mut self, schema: &DataSchema) {

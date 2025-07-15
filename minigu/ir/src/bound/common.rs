@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use minigu_common::data_type::DataSchemaRef;
 use minigu_common::types::LabelId;
 use serde::Serialize;
 
@@ -31,7 +30,7 @@ pub enum BoundPathPatternExpr {
         quantifier: BoundPatternQuantifier,
     },
     Optional(Box<BoundPathPatternExpr>),
-    Subpath(Arc<BoundSubpathPattern>),
+    Subpath(Box<BoundSubpathPattern>),
     Pattern(BoundElementPattern),
 }
 
@@ -64,8 +63,8 @@ pub enum BoundPathMode {
 
 #[derive(Debug, Clone, Serialize)]
 pub enum BoundElementPattern {
-    Vertex(Arc<BoundVertexPattern>),
-    Edge(Arc<BoundEdgePattern>),
+    Vertex(Box<BoundVertexPattern>),
+    Edge(Box<BoundEdgePattern>),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -96,17 +95,7 @@ pub struct BoundEdgePattern {
 #[derive(Debug, Clone, Serialize)]
 pub struct BoundGraphPattern {
     pub match_mode: Option<BoundMatchMode>,
-    pub paths: Vec<Arc<BoundPathPattern>>,
+    pub paths: Vec<BoundPathPattern>,
     pub predicate: Option<BoundExpr>,
+    pub schema: DataSchemaRef,
 }
-
-// match p1 = (a)-->()-->(b), p2 = (c)-->(d) return *;
-// a, b, p1, c, d, p2
-// (a, b, p1), (c, d, p2)
-// a: VertexRef(a)
-// b: VertexRef(a)
-// a: ColumnRef(0)
-// b: ColumnRef(1)
-// (a) --> (b)
-// (a, b, p1)
-// VertexScan  --> Projection

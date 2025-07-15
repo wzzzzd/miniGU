@@ -8,7 +8,16 @@ use crate::error::{BindError, BindResult};
 impl Binder<'_> {
     pub fn bind_graph_expr(&self, expr: &GraphExpr) -> BindResult<NamedGraphRef> {
         match expr {
-            GraphExpr::Name(_) => not_implemented("graph expression from name", None),
+            GraphExpr::Name(name) => {
+                let schema = self
+                    .current_schema
+                    .as_ref()
+                    .ok_or(BindError::CurrentSchemaNotSpecified)?;
+                let graph = schema
+                    .get_graph(name)?
+                    .ok_or_else(|| BindError::GraphNotFound(name.clone()))?;
+                Ok(NamedGraphRef::new(name.clone(), graph))
+            }
             GraphExpr::Object(_) => {
                 not_implemented("graph expression from object expression", None)
             }

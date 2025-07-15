@@ -3,7 +3,7 @@ use minigu_common::ordering::{NullOrdering, SortOrdering};
 use serde::Serialize;
 
 use super::value_expr::BoundSetQuantifier;
-use crate::bound::{BoundCallProcedureStatement, BoundExpr, BoundProcedure};
+use crate::bound::{BoundCallProcedureStatement, BoundExpr, BoundGraphPattern, BoundProcedure};
 
 #[derive(Debug, Clone, Serialize)]
 pub enum BoundCompositeQueryStatement {
@@ -85,6 +85,7 @@ pub struct BoundSortSpec {
 
 #[derive(Debug, Clone, Serialize)]
 pub enum BoundSimpleQueryStatement {
+    Match(BoundMatchStatement),
     Call(BoundCallProcedureStatement),
 }
 
@@ -105,4 +106,9 @@ pub enum BoundSetOpKind {
 pub struct BoundSetOp {
     pub kind: BoundSetOpKind,
     pub quantifier: Option<BoundSetQuantifier>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum BoundMatchStatement {
+    Simple(BoundGraphPattern),
 }

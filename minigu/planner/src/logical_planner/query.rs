@@ -61,6 +61,9 @@ impl LogicalPlanner {
         statement: BoundSimpleQueryStatement,
     ) -> PlanResult<PlanNode> {
         match statement {
+            BoundSimpleQueryStatement::Match(statement) => {
+                todo!()
+            }
             BoundSimpleQueryStatement::Call(statement) => {
                 self.plan_call_procedure_statement(statement)
             }

@@ -82,6 +82,9 @@ pub enum BindError {
     ))]
     NotCatalogProcedure(SmolStr),
 
+    #[error("variable already declared: {0}")]
+    VariableAlreadyDeclared(SmolStr),
+
     // TODO: Remove this error variant
     #[error("unexpected bind error")]
     Unexpected,
